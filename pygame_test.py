@@ -2,6 +2,16 @@ import pygame
 from sys import exit
 import threading
 
+"""
+to do list
+add en passant
+add rook and king switching
+give player option to switch pawn to something any other piece other than king
+add stalemate conditions and effects
+add checkmate conditions and effects
+maybe add captured pieces list and visuals
+
+"""
 
 #######################################################################################################################################
 def print_table(table):
@@ -261,42 +271,33 @@ def check_cover(color, table):
 
 def with_check_very_next_move(line, row, table):
     color = table[line][row][0]
-    # print(table[line][row])
     other_color = COLORS[COLORS.index(color) - 1]
     piece = table[line][row]
-    cover_table = check_cover(other_color, table)
     for i in range(8):
         for j in range(8):
             if table[i][j]==f'{color}K':
                 king_line = i
                 king_row = j
                 break
-    #king_index = all_logic[color].index(f'{color}K')
-    #king_line = calculate_line(all_rects[color][king_index].centery)
-    #king_row = calculate_row(all_rects[color][king_index].centerx)
     possible_moves = check_path_for_piece(line, row, table)
-    print(f'possible moves before:{possible_moves}')
-    # filters the moves that dont take king away from a check (only moves from other pieces not the king himself, so pinned pieces and ones usedto block check)
+    # filters the moves that don't take king away from a check
+    # so pinned pieces and ones used to block check
     i = 0
     while i < len(possible_moves):
         dummy_chess_table = []
         for j in table:
             dummy_chess_table.append(list(j))
-        # if i == 1 or 2: print_table(dummy_chess_table)
         dummy_chess_table[possible_moves[i][0]][possible_moves[i][1]] = piece
         dummy_chess_table[line][row] = '00'
         dummy_cover_table = check_cover(other_color, dummy_chess_table)
-        print_table(dummy_cover_table)
         if piece == f'{color}K':
             king_line = possible_moves[i][0]
             king_row = possible_moves[i][1]
 
-        # if (i == 1) and piece[1]=='K': print_table(dummy_cover_table)
         if dummy_cover_table[king_line][king_row] == f'{other_color}{other_color}':
             possible_moves.pop(i)
             i -= 1
         i += 1
-    print(f'possible moves after:{possible_moves}')
     return possible_moves
 
 
@@ -308,7 +309,7 @@ chess_table = [['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR'],
                ['00', '00', '00', '00', '00', '00', '00', '00'],
                ['00', '00', '00', '00', '00', '00', '00', '00'],
                ['00', '00', '00', '00', '00', '00', '00', '00'],
-               ['00', '00', '00', 'bP', '00', '00', '00', '00'],
+               ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
                ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR']]
 
 # chess_table =  [['00', '00', '00', '00', '00', '00', '00', '00'],
@@ -386,6 +387,7 @@ y = 0
 previous_position = []
 selected_piece = [0, 0, 0, 0]
 current_possible_moves = []
+current_player_color = 'w'
 BUTTON_DOWN = False
 while True:
     for event in pygame.event.get():
@@ -396,19 +398,18 @@ while True:
             mouse_pos = pygame.mouse.get_pos()
             line = calculate_line(mouse_pos[1])
             row = calculate_row(mouse_pos[0])
+            color = current_player_color
             if selected_piece[0] == 0:
-                for color in all_surfs:
-                    for i in range(len(all_rects[color])):
-                        if all_rects[color][i].collidepoint(pygame.mouse.get_pos()):
-                            previous_position = all_rects[color][i].center
-                            selected_piece[0] = all_surfs[color][i]
-                            selected_piece[1] = all_rects[color][i]
-                            selected_piece[2] = i
-                            selected_piece[3] = color
-                            current_possible_moves = with_check_very_next_move(line, row, chess_table)
-                            BUTTON_DOWN = True
-                            # print(current_possible_moves)
-                            break
+                for i in range(len(all_rects[color])):
+                    if all_rects[color][i].collidepoint(pygame.mouse.get_pos()):
+                        previous_position = all_rects[color][i].center
+                        selected_piece[0] = all_surfs[color][i]
+                        selected_piece[1] = all_rects[color][i]
+                        selected_piece[2] = i
+                        selected_piece[3] = color
+                        current_possible_moves = with_check_very_next_move(line, row, chess_table)
+                        BUTTON_DOWN = True
+                        break
 
             else:
                 prev_line = calculate_line(previous_position[1])
@@ -426,6 +427,8 @@ while True:
                                 all_surfs[other_color].pop(i)
                                 all_rects[other_color].pop(i)
                                 break
+                        current_player_color = COLORS[COLORS.index(current_player_color) - 1]
+
                 selected_piece = [0, 0, 0, 0]
                 current_possible_moves = []
                 previous_position = []
@@ -452,6 +455,7 @@ while True:
                                 all_surfs[other_color].pop(i)
                                 all_rects[other_color].pop(i)
                                 break
+                        current_player_color = COLORS[COLORS.index(current_player_color) - 1]
 
                         selected_piece = [0, 0, 0, 0]
                         previous_position = []
@@ -466,7 +470,7 @@ while True:
 
     screen.blit(background_surf, (0, 0))
     screen.blit(table_surf, table_rect)
-    # print(current_possible_moves)
+    #print(f'curent_player_color:{current_player_color}')
     # print_table(chess_table)
     if BUTTON_DOWN:
         mouse_pos = pygame.mouse.get_pos()
