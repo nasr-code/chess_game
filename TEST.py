@@ -10,6 +10,4 @@ def shit():
     return lis
 
 
-liston = shit()
-
-print(liston['w'])
+print(listo[:2])

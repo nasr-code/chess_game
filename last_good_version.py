@@ -8,7 +8,6 @@ add en passant
 add rook and king switching
 give player option to switch pawn to something any other piece other than king
 add stalemate conditions and effects
-add draw 
 add checkmate conditions and effects
 maybe add captured pieces list and visuals
 
@@ -131,7 +130,7 @@ def check_path_for_pawn(color, line, row, table):
     if line + step > -1 and line + step < 8:
         if table[line + step][row] == '00':
             possible_moves.append([line + step, row])
-            if (line == 1 and color=='w') or (line == 6 and color == 'b'):
+            if line == 1 or line == 6:
                 if table[line + 2 * step][row] == '00':
                     possible_moves.append([line + 2 * step, row])
 
@@ -160,31 +159,8 @@ def check_path_for_king(color, line, row, table):
 
     return possible_moves
 
-def check_for_castle_possibility(line, row, table, cover_table, castle_possibility):
-    color = table[line][row][0]
-    castle_condition = {'left': [[line, row - 1], [line, row - 2]], 'right': [[line, row + 1], [line, row + 2]]}
-    #WHITE_caste_possibility = {'left': True, 'right': True}
-    #BLACK_caste_possibility = {'left': True, 'right': True}
-    #GLOBAL_caste_possibility = {'w': WHITE_caste_possibility, 'b': BLACK_caste_possibility}
-    if castle_possibility and cover_table[line][row] == '00':
-        for key in castle_condition:
-            if castle_possibility[color][key]:
-                for i in range(len(castle_condition[key])):
-                    another_line = castle_condition[key][i][0]
-                    another_row = castle_condition[key][i][1]
-                    flag = 0
-                    if not (table[another_line][another_row] == '00' and cover_table[another_line][
-                        another_row] == '00'):
-                        print('BBBBBBBBBBBBBBBBBB')
-                        flag = 1
-                if flag == 0:
-                    print('AAAAAAAAAAAAAAAAAAAAAAA')
-                flag = 0
 
-
-
-
-def check_path_for_piece(line, row, table, en_passant_possibility, castle_possibility=None, regular_mode=True):  # checks for path of pieces on the regular use
+def check_path_for_piece(line, row, table, regular_mode=True):  # checks for path of pieces on the regular use
     color = table[line][row][0]  # next_move_mode is for when we are in a state to check the future move
     piece = table[line][row][1]
     possible_moves = []
@@ -193,17 +169,16 @@ def check_path_for_piece(line, row, table, en_passant_possibility, castle_possib
     if piece == 'P':
         step = 1 if color == 'w' else -1
         possible_moves_brushed = check_path_for_pawn(color, line, row, table)
-        #print(f'from function en_passant_possibility: {en_passant_possibility}')
         # filters the attack positions of the pawn if there is no enemy there
         j = 0
         while j < len(possible_moves_brushed):
             if possible_moves_brushed[j][0] == line + step:
                 if possible_moves_brushed[j][1] == row - 1:
-                    if table[line + step][row - 1] == '00' and en_passant_possibility != [line + step, row - 1, other_color]:
+                    if table[line + step][row - 1] == '00':
                         possible_moves_brushed.pop(j)
                         j -= 1
                 elif possible_moves_brushed[j][1] == row + 1:
-                    if table[line + step][row + 1] == '00' and en_passant_possibility != [line + step, row + 1, other_color]:
+                    if table[line + step][row + 1] == '00':
                         possible_moves_brushed.pop(j)
                         j -= 1
             j += 1
@@ -230,32 +205,14 @@ def check_path_for_piece(line, row, table, en_passant_possibility, castle_possib
                     possible_moves_brushed.append(h)
 
     elif piece == 'K':
-        castle_condition = {'left': [[line, row - 1], [line, row - 2]], 'right': [[line, row +1], [line, row + 2]]}
         possible_moves_brushed = check_path_for_king(color, line, row, table)
         cover_table = check_cover(other_color, table)
-        #filters for places covered by the enemy pieces using the cover table
         i = 0
         while i < len(possible_moves_brushed):
             if cover_table[possible_moves_brushed[i][0]][possible_moves_brushed[i][1]] != '00':
                 possible_moves_brushed.pop(i)
                 i -= 1
             i += 1
-        #adds the castle situation if conditions are met
-        if castle_possibility and regular_mode and cover_table[line][row]=='00':
-            for key in castle_condition:
-                if castle_possibility[color][key]:
-                    for i in range(len(castle_condition[key])):
-                        another_line = castle_condition[key][i][0]
-                        another_row = castle_condition[key][i][1]
-                        flag = 0
-                        if not (table[another_line][another_row] == '00' and cover_table[another_line][another_row] == '00'):
-                            print('BBBBBBBBBBBBBBBBBB')
-                            flag = 1
-                    if flag == 0:
-                        print('AAAAAAAAAAAAAAAAAAAAAAA')
-                    flag = 0
-
-
     # filters the covered pieces of the piece that are on the same team during regular use
     i = 0
     if possible_moves_brushed and regular_mode == True:
@@ -312,7 +269,7 @@ def check_cover(color, table):
     return cover_table
 
 
-def with_check_very_next_move(line, row, table, en_passant_possibility = None, castle_possibility = None):
+def with_check_very_next_move(line, row, table):
     color = table[line][row][0]
     other_color = COLORS[COLORS.index(color) - 1]
     piece = table[line][row]
@@ -322,7 +279,7 @@ def with_check_very_next_move(line, row, table, en_passant_possibility = None, c
                 king_line = i
                 king_row = j
                 break
-    possible_moves = check_path_for_piece(line, row, table, castle_possibility, en_passant_possibility)
+    possible_moves = check_path_for_piece(line, row, table)
     # filters the moves that don't take king away from a check
     # so pinned pieces and ones used to block check
     i = 0
@@ -343,33 +300,52 @@ def with_check_very_next_move(line, row, table, en_passant_possibility = None, c
         i += 1
     return possible_moves
 
-def check_for_stalemate():
-    pass
+def check_for_game_end(color, table):
+    other_color = COLORS[COLORS.index(color) - 1]
+    cover_table = check_cover(other_color, table)
+    king_line = 100
+    king_row = 100
+    flag = 0
+    for i in range(len(all_logic[color])):
+        line = calculate_line(all_rects[color][i].centery)
+        row = calculate_row(all_rects[color][i].centerx)
+        possible_moves = with_check_very_next_move(line, row, table)
+        if all_logic[color][i] == f'{color}K':
+            king_line = line
+            king_row = row
+        if possible_moves:
+            flag = 1
+    if flag == 0:
+        if king_line != 100 and king_row != 100:
+            print(color)
+            if cover_table[king_line][king_row] != '00':
+                print('checkmate bruv')
+            else:
+                print('stalemate, mate')
+    else:
+        print('not mate bruv')
 
-
-def check_for_checkmate():
-    pass
 
 
 #######################################################################################################################################
 
-chess_table = [['wR', '00', '00', 'wQ', 'wK', '00', '00', 'wR'],
-               ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
-               ['00', '00', '00', '00', '00', '00', '00', '00'],
-               ['00', '00', '00', '00', '00', '00', '00', '00'],
-               ['00', '00', '00', '00', '00', '00', '00', '00'],
-               ['00', '00', '00', '00', '00', '00', '00', '00'],
-               ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
-               ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR']]
+#chess_table = [['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR'],
+#               ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
+#               ['00', '00', '00', '00', '00', '00', '00', '00'],
+#               ['00', '00', '00', '00', '00', '00', '00', '00'],
+#               ['00', '00', '00', '00', '00', '00', '00', '00'],
+#               ['00', '00', '00', '00', '00', '00', '00', '00'],
+#               ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
+#               ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR']]
 
-# chess_table =  [['00', '00', '00', '00', '00', '00', '00', '00'],
-#               ['00', '00', '00', 'bP', '00', '00', '00', '00'],
-#               ['00', '00', '00', '00', '00', '00', '00', '00'],
-#               ['00', '00', '00', '00', '00', '00', '00', '00'],
-#               ['00', 'bR', '00', 'bQ', 'bK', '00', 'bN', '00'],
-#               ['00', '00', '00', '00', '00', '00', '00', '00'],
-#               ['00', '00', '00', 'bB', '00', 'wB', '00', '00'],
-#               ['00', '00', '00', '00', '00', '00', '00', '00']]
+chess_table = [['00', '00', '00', '00', '00', '00', '00', '00'],
+               ['00', '00', '00', '00', '00', '00', '00', 'wK'],
+               ['00', '00', '00', '00', '00', '00', '00', '00'],
+               ['00', '00', '00', '00', '00', '00', '00', '00'],
+               ['00', '00', '00', '00', '00', '00', '00', '00'],
+               ['00', 'bB', '00', '00', '00', 'bQ', '00', '00'],
+               ['00', '00', '00', '00', '00', '00', '00', '00'],
+               ['00', '00', '00', '00', 'bK', '00', '00', '00']]
 
 
 num = 50 + (87.5 / 2)
@@ -439,10 +415,6 @@ selected_piece = [0, 0, 0, 0]
 current_possible_moves = []
 current_player_color = 'w'
 BUTTON_DOWN = False
-en_passant_possibility = []
-WHITE_caste_possibility = {'left': True, 'right': True}
-BLACK_caste_possibility = {'left': True, 'right': True}
-GLOBAL_caste_possibility = {'w': WHITE_caste_possibility, 'b': BLACK_caste_possibility}
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -461,7 +433,7 @@ while True:
                         selected_piece[1] = all_rects[color][i]
                         selected_piece[2] = i
                         selected_piece[3] = color
-                        current_possible_moves = with_check_very_next_move(line, row, chess_table, GLOBAL_caste_possibility, en_passant_possibility)
+                        current_possible_moves = with_check_very_next_move(line, row, chess_table)
                         BUTTON_DOWN = True
                         break
 
@@ -475,42 +447,16 @@ while True:
                         selected_piece[1].centery = calculate_ypos(line)
                         chess_table[line][row] = chess_table[prev_line][prev_row]
                         chess_table[prev_line][prev_row] = '00'
-                        if chess_table[line][row][1] == 'R':
-                            #print('AHA NIGGA')
-                            if prev_row == 0:
-                                GLOBAL_caste_possibility[color][0] = False
-                            elif prev_row == 7:
-                                GLOBAL_caste_possibility[color][1] = False
-                        elif chess_table[line][row][1] == 'K':
-                            GLOBAL_caste_possibility[color][0] = False
-                            GLOBAL_caste_possibility[color][1] = False
-
-                        #if pawn jumps 2 square, there is automatically an en passant capability
-                        if chess_table[line][row][1]=='P':
-                            step = 1 if color=='w' else -1
-                            if prev_line + 2*step == line:
-                                en_passant_possibility = [prev_line + step, row, color]
-                        #wipes the eaten element from existence
                         for i in range(len(all_rects[other_color])):
                             if [line, row] == [calculate_line(all_rects[other_color][i].centery),
                                                calculate_row(all_rects[other_color][i].centerx)]:
                                 all_surfs[other_color].pop(i)
                                 all_rects[other_color].pop(i)
+                                all_logic[other_color].pop(i)
                                 break
-                            #####################################################################################
-                            #under matenance, en passant part
-                            #if all_logic[selected_piece[3]][selected_piece[2]][1]=='P':
-                            #    step = 1 if color == 'w' else -1
-                            #    #print('AAAAAAAAAAAAAAAAAAAAAAAAAAA')
-                            #    if [line, row] == [calculate_line(all_rects[other_color][i].centery)-step,
-                            #                   calculate_row(all_rects[other_color][i].centerx)]\
-                            #            and [line,row, other_color]==en_passant_possibility:
-                            #        all_surfs[other_color].pop(i)
-                            #        all_rects[other_color].pop(i)
-                            #        print('AAAAAAAAAAAAAAAAAAAAAAAAAAA')
-                            #        break
-                            #####################################################################################
+
                         current_player_color = COLORS[COLORS.index(current_player_color) - 1]
+                        check_for_game_end(current_player_color, chess_table)
 
                 selected_piece = [0, 0, 0, 0]
                 current_possible_moves = []
@@ -522,7 +468,6 @@ while True:
             mouse_ypos = pygame.mouse.get_pos()[1]
             line = calculate_line(mouse_ypos)
             row = calculate_row(mouse_xpos)
-            color = current_player_color
             if selected_piece[0] != 0 and BUTTON_DOWN:
                 prev_line = calculate_line(previous_position[1])
                 prev_row = calculate_row(previous_position[0])
@@ -533,22 +478,16 @@ while True:
                         selected_piece[1].centery = calculate_ypos(line)
                         chess_table[line][row] = chess_table[prev_line][prev_row]
                         chess_table[prev_line][prev_row] = '00'
-                        # if pawn jumps 2 square, there is automatically an en passant capability
-                        if chess_table[line][row][1] == 'P':
-                            step = 1 if color == 'w' else -1
-                            if prev_line + 2 * step == line:
-                                en_passant_possibility = [prev_line + step, row, color]
-
                         for i in range(len(all_rects[other_color])):
                             if [line, row] == [calculate_line(all_rects[other_color][i].centery),
                                                calculate_row(all_rects[other_color][i].centerx)]:
                                 all_surfs[other_color].pop(i)
                                 all_rects[other_color].pop(i)
+                                all_logic[other_color].pop(i)
                                 break
 
-
                         current_player_color = COLORS[COLORS.index(current_player_color) - 1]
-
+                        check_for_game_end(current_player_color, chess_table)
                         selected_piece = [0, 0, 0, 0]
                         previous_position = []
                         current_possible_moves = []
@@ -564,8 +503,7 @@ while True:
     screen.blit(table_surf, table_rect)
     #print(f'curent_player_color:{current_player_color}')
     # print_table(chess_table)
-    #print(f'en_passant_possibility: {en_passant_possibility}')
-    #print(f'color: {current_player_color}|{GLOBAL_caste_possibility[current_player_color]}')
+
     if BUTTON_DOWN:
         mouse_pos = pygame.mouse.get_pos()
         selected_piece[1].centerx = mouse_pos[0]
