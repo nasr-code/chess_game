@@ -160,7 +160,7 @@ def check_path_for_king(color, line, row, table):
     return possible_moves
 
 
-def check_path_for_piece(line, row, table, regular_mode=True):  # checks for path of pieces on the regular use
+def check_path_for_piece(line, row, table,castle_possibility, regular_mode=True):  # checks for path of pieces on the regular use
     color = table[line][row][0]  # next_move_mode is for when we are in a state to check the future move
     piece = table[line][row][1]
     possible_moves = []
@@ -205,6 +205,8 @@ def check_path_for_piece(line, row, table, regular_mode=True):  # checks for pat
                     possible_moves_brushed.append(h)
 
     elif piece == 'K':
+        castle_check_places = {'left': [[line, row-1],[line, row-2]],
+                               'right': [[line, row+1],[line, row+2]]}
         possible_moves_brushed = check_path_for_king(color, line, row, table)
         cover_table = check_cover(other_color, table)
         i = 0
@@ -213,6 +215,18 @@ def check_path_for_piece(line, row, table, regular_mode=True):  # checks for pat
                 possible_moves_brushed.pop(i)
                 i -= 1
             i += 1
+        #adds castle possibilities
+        i = 0
+        for key in castle_check_places:
+            if castle_possibility[color][key]:
+                flag = 0
+                for element in castle_check_places[key]:
+                    if table[element[0]][element[1]]!='00' or cover_table[element[0]][element[1]]!='00':
+                        flag = 1
+                if flag == 0:
+                    possible_moves_brushed.append(castle_check_places[key][1])
+
+
     # filters the covered pieces of the piece that are on the same team during regular use
     i = 0
     if possible_moves_brushed and regular_mode == True:
@@ -224,7 +238,6 @@ def check_path_for_piece(line, row, table, regular_mode=True):  # checks for pat
             i += 1
     i = 0
 
-    # print(possible_moves_brushed)
     return possible_moves_brushed
 
 
@@ -256,7 +269,6 @@ def check_cover(color, table):
                             possible_moves.pop(h)
                             h -= 1
                         h += 1
-                    # print(possible_moves)
                 else:
                     possible_moves = check_path_for_piece(line, row, table, False)
 
@@ -269,7 +281,7 @@ def check_cover(color, table):
     return cover_table
 
 
-def with_check_very_next_move(line, row, table):
+def with_check_very_next_move(line, row, table, castle_possibility):
     color = table[line][row][0]
     other_color = COLORS[COLORS.index(color) - 1]
     piece = table[line][row]
@@ -279,7 +291,7 @@ def with_check_very_next_move(line, row, table):
                 king_line = i
                 king_row = j
                 break
-    possible_moves = check_path_for_piece(line, row, table)
+    possible_moves = check_path_for_piece(line, row, table, castle_possibility)
     # filters the moves that don't take king away from a check
     # so pinned pieces and ones used to block check
     i = 0
@@ -300,13 +312,9 @@ def with_check_very_next_move(line, row, table):
         i += 1
     return possible_moves
 
-def pawn_promotion(color, line, row):
-    possible_pieces = ['Q', 'N', 'R', 'B']
-    if color == 'w':
-        empty_surf = pygame.Surface((72,72))
 
 
-def check_for_game_end(color, table):
+def check_for_game_end(color, table, castle_possibility):
     other_color = COLORS[COLORS.index(color) - 1]
     cover_table = check_cover(other_color, table)
     king_line = 100
@@ -315,7 +323,7 @@ def check_for_game_end(color, table):
     for i in range(len(all_logic[color])):
         line = calculate_line(all_rects[color][i].centery)
         row = calculate_row(all_rects[color][i].centerx)
-        possible_moves = with_check_very_next_move(line, row, table)
+        possible_moves = with_check_very_next_move(line, row, table, castle_possibility)
         if all_logic[color][i] == f'{color}K':
             king_line = line
             king_row = row
@@ -331,27 +339,81 @@ def check_for_game_end(color, table):
     else:
         print('not mate bruv')
 
+def search_rook_pos(color, all_logic, all_rects):
+    dum_line = 0 if color=='w' else 7
+    rooks_pos = {}
+    for i in range(len(all_logic[color])):
+        if all_logic[color][i]==f'{color}R':
+            rook_line = calculate_line(all_rects[color][i].centery)
+            rook_row = calculate_row(all_rects[color][i].centerx)
+            if [rook_line, rook_row] == [dum_line, 0]:
+                rooks_pos['left'] = i
+            elif [rook_line, rook_row] == [dum_line, 7]:
+                rooks_pos['right'] = i
+    return rooks_pos
 
+def deal_with_piece_movement():
+    if chess_table[prev_line][prev_row][1] == 'R':
+        rooks_pos = search_rook_pos(color, all_logic, all_rects)
+        if prev_row == 0:
+            all_castle_possibility[color]['left'] = False
+        elif prev_row == 7:
+            all_castle_possibility[color]['right'] = False
 
+    other_color = COLORS[COLORS.index(selected_piece[3]) - 1]
+    selected_piece[1].centerx = calculate_xpos(row)
+    selected_piece[1].centery = calculate_ypos(line)
+    chess_table[line][row] = chess_table[prev_line][prev_row]
+    chess_table[prev_line][prev_row] = '00'
+    for i in range(len(all_rects[other_color])):
+        if [line, row] == [calculate_line(all_rects[other_color][i].centery),
+                           calculate_row(all_rects[other_color][i].centerx)]:
+            all_surfs[other_color].pop(i)
+            all_rects[other_color].pop(i)
+            all_logic[other_color].pop(i)
+            break
+
+    if chess_table[line][row][1] == 'P':
+        if [color, line] == ['w', 7] or [color, line] == ['b', 0]:
+            changing_pawn_state = [True, selected_piece[3], selected_piece[2]]
+    ##########################################
+    if chess_table[line][row][1] == 'K':
+        if prev_row == row + 2 or prev_row == row - 2:
+            rooks_pos = search_rook_pos(color, all_logic, all_rects)
+            if prev_row - 2 == row:
+                new_pos = [line, row + 1]
+                all_rects[color][rooks_pos['left']].centerx = calculate_xpos(new_pos[1])
+                all_rects[color][rooks_pos['left']].centery = calculate_ypos(new_pos[0])
+                chess_table[line][new_pos[1]] = chess_table[line][0]
+                chess_table[line][0] = '00'
+            else:
+                new_pos = [line, row - 1]
+                all_rects[color][rooks_pos['right']].centerx = calculate_xpos(new_pos[1])
+                all_rects[color][rooks_pos['right']].centery = calculate_ypos(new_pos[0])
+                chess_table[line][new_pos[1]] = chess_table[line][7]
+                chess_table[line][7] = '00'
+
+        all_castle_possibility[color]['left'] = False
+        all_castle_possibility[color]['right'] = False
 #######################################################################################################################################
 
-#chess_table = [['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR'],
-#               ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
-#               ['00', '00', '00', '00', '00', '00', '00', '00'],
-#               ['00', '00', '00', '00', '00', '00', '00', '00'],
-#               ['00', '00', '00', '00', '00', '00', '00', '00'],
-#               ['00', '00', '00', '00', '00', '00', '00', '00'],
-#               ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
-#               ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR']]
+chess_table = [['wR', '00', '00', 'wQ', 'wK', '00', '00', 'wR'],
+               ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
+               ['00', '00', '00', '00', '00', '00', '00', '00'],
+               ['00', '00', '00', '00', '00', '00', '00', '00'],
+               ['00', '00', '00', '00', '00', '00', '00', '00'],
+               ['00', '00', '00', '00', '00', '00', '00', '00'],
+               ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
+               ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR']]
 
-chess_table = [['00', '00', '00', '00', '00', '00', '00', '00'],
-               ['00', '00', 'bP', '00', '00', '00', '00', 'wK'],
-               ['00', '00', '00', '00', '00', '00', '00', '00'],
-               ['00', '00', '00', '00', '00', '00', '00', '00'],
-               ['00', '00', '00', '00', '00', '00', '00', '00'],
-               ['00', 'bB', '00', '00', '00', 'bQ', '00', '00'],
-               ['00', 'wP', '00', '00', '00', '00', '00', '00'],
-               ['00', '00', '00', '00', 'bK', '00', '00', '00']]
+#chess_table = [['00', '00', '00', '00', '00', '00', '00', '00'],
+#               ['00', '00', 'bP', '00', '00', '00', '00', 'wK'],
+#               ['00', '00', '00', '00', '00', '00', '00', '00'],
+#               ['00', '00', '00', '00', '00', '00', '00', '00'],
+#               ['00', '00', '00', '00', '00', '00', '00', '00'],
+#               ['00', 'bB', '00', '00', '00', 'bQ', '00', '00'],
+#               ['00', 'wP', '00', '00', '00', '00', '00', '00'],
+#               ['00', '00', '00', '00', 'bK', '00', '00', '00']]
 
 
 num = 50 + (87.5 / 2)
@@ -422,6 +484,9 @@ current_possible_moves = []
 current_player_color = 'w'
 BUTTON_DOWN = False
 changing_pawn_state = [False, 0, 999]#0 is place holder for the color, 999 is place holder for index
+WHITE_castle_possibility = {'left':True, 'right':True}
+BLACK_castle_possibility = {'left':True, 'right':True}
+all_castle_possibility = {'w': WHITE_castle_possibility, 'b': BLACK_castle_possibility}
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -433,7 +498,7 @@ while True:
             row = calculate_row(mouse_pos[0])
             color = current_player_color
 
-
+            #handling the changing state of pawn has priority over the movement of other pieces
             if changing_pawn_state[0]:
                 for i in range(len(possible_pieces_rect)):
                     if possible_pieces_rect[i].collidepoint(mouse_pos):
@@ -448,7 +513,6 @@ while True:
                         changing_pawn_state = [False, 0, 999]
             else:
                 if selected_piece[0] == 0:
-
                     for i in range(len(all_rects[color])):
                         if all_rects[color][i].collidepoint(pygame.mouse.get_pos()):
                             previous_position = all_rects[color][i].center
@@ -456,7 +520,7 @@ while True:
                             selected_piece[1] = all_rects[color][i]
                             selected_piece[2] = i
                             selected_piece[3] = color
-                            current_possible_moves = with_check_very_next_move(line, row, chess_table)
+                            current_possible_moves = with_check_very_next_move(line, row, chess_table, all_castle_possibility)
                             BUTTON_DOWN = True
                             break
 
@@ -465,25 +529,11 @@ while True:
                     prev_row = calculate_row(previous_position[0])
                     if current_possible_moves:
                         if [line, row] in current_possible_moves:
-                            other_color = COLORS[COLORS.index(selected_piece[3]) - 1]
-                            selected_piece[1].centerx = calculate_xpos(row)
-                            selected_piece[1].centery = calculate_ypos(line)
-                            chess_table[line][row] = chess_table[prev_line][prev_row]
-                            chess_table[prev_line][prev_row] = '00'
-                            for i in range(len(all_rects[other_color])):
-                                if [line, row] == [calculate_line(all_rects[other_color][i].centery),
-                                                   calculate_row(all_rects[other_color][i].centerx)]:
-                                    all_surfs[other_color].pop(i)
-                                    all_rects[other_color].pop(i)
-                                    all_logic[other_color].pop(i)
-                                    break
 
-                            if [color,line] == ['w', 7] or [color,line] == ['b', 0]:
-                                changing_pawn_state = [True, selected_piece[3], selected_piece[2]]
-
+                            deal_with_piece_movement()
 
                             current_player_color = COLORS[COLORS.index(current_player_color) - 1]
-                            check_for_game_end(current_player_color, chess_table)
+                            check_for_game_end(current_player_color, chess_table, all_castle_possibility)
 
                     selected_piece = [0, 0, 0, 0]
                     current_possible_moves = []
@@ -495,29 +545,17 @@ while True:
             mouse_ypos = pygame.mouse.get_pos()[1]
             line = calculate_line(mouse_ypos)
             row = calculate_row(mouse_xpos)
+            color = current_player_color
             if selected_piece[0] != 0 and BUTTON_DOWN:
                 prev_line = calculate_line(previous_position[1])
                 prev_row = calculate_row(previous_position[0])
                 if current_possible_moves:
                     if [line, row] in current_possible_moves:
-                        other_color = COLORS[COLORS.index(selected_piece[3]) - 1]
-                        selected_piece[1].centerx = calculate_xpos(row)
-                        selected_piece[1].centery = calculate_ypos(line)
-                        chess_table[line][row] = chess_table[prev_line][prev_row]
-                        chess_table[prev_line][prev_row] = '00'
-                        for i in range(len(all_rects[other_color])):
-                            if [line, row] == [calculate_line(all_rects[other_color][i].centery),
-                                               calculate_row(all_rects[other_color][i].centerx)]:
-                                all_surfs[other_color].pop(i)
-                                all_rects[other_color].pop(i)
-                                all_logic[other_color].pop(i)
-                                break
 
-                        if [selected_piece[3], line] == ['w', 7] or [selected_piece[3], line] == ['b', 0]:
-                            changing_pawn_state = [True, selected_piece[3], selected_piece[2]]
+                        deal_with_piece_movement()
 
                         current_player_color = COLORS[COLORS.index(current_player_color) - 1]
-                        check_for_game_end(current_player_color, chess_table)
+                        check_for_game_end(current_player_color, chess_table, all_castle_possibility)
 
                         selected_piece = [0, 0, 0, 0]
                         previous_position = []
@@ -532,8 +570,8 @@ while True:
 
     screen.blit(background_surf, (0, 0))
     screen.blit(table_surf, table_rect)
-    #print(f'curent_player_color:{current_player_color}')
-    # print_table(chess_table)
+
+    print(all_castle_possibility['w'])
 
     if BUTTON_DOWN:
         mouse_pos = pygame.mouse.get_pos()
@@ -563,10 +601,6 @@ while True:
             possible_pieces_rect.append(piece_rect)
             screen.blit(piece_surf, piece_rect)
             j += 1
-
-
-
-
 
 
     if selected_piece[0] != 0:

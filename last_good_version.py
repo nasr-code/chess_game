@@ -5,8 +5,7 @@ import threading
 """
 to do list
 add en passant
-add rook and king switching
-give player option to switch pawn to something any other piece other than king
+add castle
 add stalemate conditions and effects
 add checkmate conditions and effects
 maybe add captured pieces list and visuals
@@ -300,12 +299,6 @@ def with_check_very_next_move(line, row, table):
     return possible_moves
 
 
-def pawn_promotion(color, line, row):
-    possible_pieces = ['Q', 'N', 'R', 'B']
-    if color == 'w':
-        empty_surf = pygame.Surface((72, 72))
-
-
 def check_for_game_end(color, table):
     other_color = COLORS[COLORS.index(color) - 1]
     cover_table = check_cover(other_color, table)
@@ -528,8 +521,7 @@ while True:
 
     screen.blit(background_surf, (0, 0))
     screen.blit(table_surf, table_rect)
-    # print(f'curent_player_color:{current_player_color}')
-    # print_table(chess_table)
+    
 
     if BUTTON_DOWN:
         mouse_pos = pygame.mouse.get_pos()
