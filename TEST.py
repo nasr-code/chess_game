@@ -1,2 +1,4 @@
-listo = ['0', 'BHA', 'WH']
-print(listo.index('WH'))
+x = 'a'
+y = 'b'
+print('hello nigga!')
+x<b

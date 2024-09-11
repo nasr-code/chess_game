@@ -397,7 +397,7 @@ def deal_with_piece_movement():
         all_castle_possibility[color]['right'] = False
 #######################################################################################################################################
 
-chess_table = [['wR', '00', '00', 'wQ', 'wK', '00', '00', 'wR'],
+chess_table = [['wR', 'wK', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR'],
                ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
                ['00', '00', '00', '00', '00', '00', '00', '00'],
                ['00', '00', '00', '00', '00', '00', '00', '00'],
@@ -571,7 +571,7 @@ while True:
     screen.blit(background_surf, (0, 0))
     screen.blit(table_surf, table_rect)
 
-    print(all_castle_possibility['w'])
+    #print(all_castle_possibility['w'])
 
     if BUTTON_DOWN:
         mouse_pos = pygame.mouse.get_pos()
